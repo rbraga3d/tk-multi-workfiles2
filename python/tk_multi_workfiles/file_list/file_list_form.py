@@ -119,7 +119,12 @@ class FileListForm(QtGui.QWidget):
         self._ui.all_versions_cb.setChecked(file_filters.show_all_versions)
         self._ui.all_versions_cb.toggled.connect(self._on_show_all_versions_toggled)
 
-        check_refs = self.retrieve_check_reference_setting(self._app)
+        # get from latest user preference (enabled/disabled checkbox)
+        #check_refs = self.retrieve_check_reference_setting(self._app)
+
+        # get from the app settings config 
+        check_refs = self._app.get_setting(self.CHECK_REFS_USER_SETTING, False)
+        self.store_check_reference_setting(self._app, check_refs)
         self._ui.check_refs_cb.setChecked(check_refs)
         self._ui.check_refs_cb.toggled.connect(
             lambda checked: self.store_check_reference_setting(self._app, checked)
