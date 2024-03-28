@@ -220,7 +220,7 @@ def check_references(app, action, context, parent_ui):
             msg_box.set_detailed_text(
                 "\n".join(
                     [
-                        (fi.get("sg_data")['name'] if fi.get("sg_data") else fi.get('node_name'))
+                        (fi.get("sg_data")['code'] if fi.get("sg_data") else fi.get('node_name'))
                         for fi in outdated_items
                     ]
                 )
