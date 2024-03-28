@@ -199,18 +199,24 @@ def check_references(app, action, context, parent_ui):
 
         # Use the breakdown manager to get the file references, then check if any are out of date
         manager = breakdown2_app.create_breakdown_manager()
+        breakdown2_module = breakdown2_app.import_module("tk_multi_breakdown2")
         file_items = manager.scan_scene()
-        result = []
+        outdated_items = []
         for file_item in file_items:
-            manager.get_latest_published_file(file_item)
-            if (
-                not file_item.highest_version_number
-                or file_item.sg_data["version_number"]
-                < file_item.highest_version_number
-            ):
-                result.append(file_item)
+            # convert the file_item(type=dict) to breakdown2_module.api.FileItem object
+            file_item_object = breakdown2_module.api.FileItem(file_item['node_name'],
+                                                                 file_item['node_type'],
+                                                                 file_item['path'] )
 
-        if result:
+            
+            if (
+                not file_item_object.highest_version_number
+                or file_item_object.sg_data["version_number"]
+                < file_item_object.highest_version_number
+            ):
+                outdated_items.append(file_item_object)
+
+        if outdated_items:
             # Out of date references were found, prompt the user how to handle them
             msg_box = MessageBox()
             msg_box.setWindowTitle("Reference Check")
@@ -219,7 +225,7 @@ def check_references(app, action, context, parent_ui):
                 "\n".join(
                     [
                         (fi.sg_data.get("name") if fi.sg_data else fi.path) or fi.path
-                        for fi in result
+                        for fi in outdated_items
                     ]
                 )
             )
@@ -228,8 +234,8 @@ def check_references(app, action, context, parent_ui):
                 "Open in Breakdown", MessageBox.ACCEPT_ROLE
             )
             ignore_button = msg_box.add_button("Ignore", MessageBox.REJECT_ROLE)
-            update_all_button = msg_box.add_button("Update All", MessageBox.APPLY_ROLE)
-            msg_box.set_default_button(update_all_button)
+            #update_all_button = msg_box.add_button("Update All", MessageBox.APPLY_ROLE)
+            msg_box.set_default_button(ignore_button)
 
             # Restore the cursor temporarily while user interacts with the dialog
             QtGui.QApplication.restoreOverrideCursor()
@@ -238,15 +244,19 @@ def check_references(app, action, context, parent_ui):
             finally:
                 QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
-            if msg_box.button_clicked == update_all_button:
-                # Update all references to the latest version
-                for file_item in result:
-                    manager.update_to_latest_version(file_item)
-            elif msg_box.button_clicked == open_button:
+            # if msg_box.button_clicked == update_all_button:
+            #     # Update all references to the latest version
+            #     for file_item in outdated_items:
+            #         updated = manager.update_to_specific_version(
+            #         file_item, file_item.to_dict()
+            #         )
+            #         print("updated item = {}".format(updated))
+                
+            if msg_box.button_clicked == open_button:
                 # Open the breakdown app to see the out of date references in more details, where
                 # the user can manually fix any, if desired
                 breakdown2_app.show_dialog()
     finally:
         QtGui.QApplication.restoreOverrideCursor()
 
-    return result
+    return outdated_items
