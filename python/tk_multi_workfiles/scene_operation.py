@@ -9,6 +9,8 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import types
+from copy import copy
+
 from sgtk import TankError
 from tank_vendor import six
 from sgtk.platform.qt import QtGui, QtCore
@@ -191,30 +193,24 @@ def check_references(app, action, context, parent_ui):
     QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
     try:
-        # No result returned, get the breakdown app to perform the default operation to check
+        # No result returned, get the breakdown legacy app to perform the default operation to check
         # references
-        breakdown2_app = app.engine.apps.get("tk-multi-breakdown2")
-        if not breakdown2_app:
+        breakdown_legacy_app = app.engine.apps.get("tk-multi-breakdown")
+        if not breakdown_legacy_app:
             return None
 
-        # Use the breakdown manager to get the file references, then check if any are out of date
-        manager = breakdown2_app.create_breakdown_manager()
-        breakdown2_module = breakdown2_app.import_module("tk_multi_breakdown2")
-        file_items = manager.scan_scene()
+        # Use the breakdown legacy to get the file references, then check if any are out of date
+        file_items = breakdown_legacy_app.analyze_scene()
         outdated_items = []
         for file_item in file_items:
-            # convert the file_item(type=dict) to breakdown2_module.api.FileItem object
-            file_item_object = breakdown2_module.api.FileItem(file_item['node_name'],
-                                                                 file_item['node_type'],
-                                                                 file_item['path'] )
+            current_version = file_item['fields']['version']
+            latest_version = breakdown_legacy_app.compute_highest_version(
+                file_item['template'], 
+                file_item['fields']
+            )
 
-            
-            if (
-                not file_item_object.highest_version_number
-                or file_item_object.sg_data["version_number"]
-                < file_item_object.highest_version_number
-            ):
-                outdated_items.append(file_item_object)
+            if current_version < latest_version:
+                outdated_items.append(file_item)
 
         if outdated_items:
             # Out of date references were found, prompt the user how to handle them
@@ -224,7 +220,7 @@ def check_references(app, action, context, parent_ui):
             msg_box.set_detailed_text(
                 "\n".join(
                     [
-                        (fi.sg_data.get("name") if fi.sg_data else fi.path) or fi.path
+                        (fi.get("sg_data")['name'] if fi.get("sg_data") else fi.get('node_name'))
                         for fi in outdated_items
                     ]
                 )
@@ -255,6 +251,7 @@ def check_references(app, action, context, parent_ui):
             if msg_box.button_clicked == open_button:
                 # Open the breakdown app to see the out of date references in more details, where
                 # the user can manually fix any, if desired
+                breakdown2_app = app.engine.apps.get("tk-multi-breakdown2")
                 breakdown2_app.show_dialog()
     finally:
         QtGui.QApplication.restoreOverrideCursor()
